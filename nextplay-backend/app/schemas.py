@@ -7,3 +7,8 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: str
     password: str
+
+class Preferences(BaseModel):
+    preferred_genres: list[str]
+    preferred_platforms: list[str]
+    mood_tags: list[str]

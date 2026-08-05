@@ -29,3 +29,20 @@ class Game(Base):
     released_date = Column(Date)
     background_image = Column(String)
     last_synced_at = Column(DateTime, server_default=func.now())
+
+class UserPreferences(Base):
+    __tablename__ = "user_preferences"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    preferred_genres = Column(ARRAY(String))
+    preferred_platforms = Column(ARRAY(String))
+    mood_tags = Column(ARRAY(String))
+    updated_at = Column(DateTime, server_default=func.now())
+
+class UserGameStatus(Base):
+    __tablename__ = "user_game_status"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    game_id = Column(Integer, ForeignKey("games.id"), nullable=False)
+    status = Column(Enum(GameStatus), nullable=False)
+    user_rating = Column(Integer, CheckConstraint("user_rating BETWEEN 1 AND 10"))
+    updated_at = Column(DateTime, server_default=func.now())

@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import text, func
+from sqlalchemy import text, func, select
 from sqlalchemy.sql import operators
 from app.database import get_db
-from app.models import Game, User
-from app.schemas import UserCreate, UserLogin
+from app.models import Game, User, UserPreferences, UserGameStatus
+from app.schemas import UserCreate, UserLogin, Preferences
 from app.auth import hash_password, verify_password, create_access_token, get_current_user
 
 app = FastAPI()
@@ -59,3 +59,56 @@ def login(credentials: UserLogin, db : Session = Depends(get_db)):
 @app.get("/me")
 def get_me(current_user: User = Depends(get_current_user)):
     return {"id": current_user.id, "email": current_user.email}
+
+@app.post("/preferences")
+def set_preferences(prefs: Preferences, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    existing = db.query(UserPreferences).filter(current_user.id == UserPreferences.user_id).first()
+    if existing:
+        existing.preferred_genres = prefs.preferred_genres
+        existing.mood_tags = prefs.mood_tags
+        existing.preferred_platforms = prefs.preferred_platforms
+        db.commit()
+        saved_prefs = existing
+    else:
+        new_prefs = UserPreferences(user_id = current_user.id, preferred_genres = prefs.preferred_genres, mood_tags = prefs.mood_tags, preferred_platforms = prefs.preferred_platforms)
+        db.add(new_prefs)
+        db.commit()
+        db.refresh(new_prefs)
+        saved_prefs = new_prefs
+    return saved_prefs
+
+@app.get("/recommendations")
+def get_recommendations(
+    limit: int = 10,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    preferences = db.query(UserPreferences).filter(current_user.id == UserPreferences.user_id).first()
+    result = db.query(UserGameStatus.game_id).filter(UserGameStatus.user_id == current_user.id, UserGameStatus.status.in_(['not_interested', 'played'])).all()
+    game_ids = [row.game_id for row in result]
+    candidate_games = db.query(Game).filter(Game.id.notin_(game_ids)).all()
+    scored_games = []
+    for game in candidate_games:
+        score = 0
+        genre_set = set(game.genres)
+        pref_genre_set = set(preferences.preferred_genres)
+        overlap = genre_set & pref_genre_set
+        if len(genre_set) > 0:
+            genre_score = len(overlap)/len(genre_set)
+        else:
+            genre_score = 0
+        score += genre_score * 40
+
+        platform_set = set(game.platforms)
+        pref_plat_set = set(preferences.preferred_platforms)
+        if(platform_set & pref_plat_set):
+            score += 20
+        
+        game_rating = float(game.rating) / 10
+        score += game_rating * 25
+
+        scored_games.append((score, game))
+    scored_games.sort(key = lambda x: x[0], reverse = True)
+    limit_games = scored_games[offset: offset + limit]
+    return [game for score, game in limit_games]
