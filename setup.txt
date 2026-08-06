@@ -1,11 +1,17 @@
+
 cd nextplay-backend
+
+Windows:
+venv/Scripts/Activate
+
+Mac:
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 
 connecting to db
-psql -U postgres
+psql -U postgres / psql postgres (on mac)
 password
 \c nextplay
 \dt to see databases
