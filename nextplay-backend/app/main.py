@@ -4,7 +4,7 @@ from sqlalchemy import text, func, select
 from sqlalchemy.sql import operators
 from app.database import get_db
 from app.models import Game, User, UserPreferences, UserGameStatus
-from app.schemas import UserCreate, UserLogin, Preferences
+from app.schemas import UserCreate, UserLogin, Preferences, Game_Status_Update
 from app.auth import hash_password, verify_password, create_access_token, get_current_user
 
 app = FastAPI()
@@ -85,6 +85,13 @@ def get_recommendations(
     db: Session = Depends(get_db)
 ):
     preferences = db.query(UserPreferences).filter(current_user.id == UserPreferences.user_id).first()
+
+    if preferences is None:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail = "User preferences not set"
+        )
+    
     result = db.query(UserGameStatus.game_id).filter(UserGameStatus.user_id == current_user.id, UserGameStatus.status.in_(['not_interested', 'played'])).all()
     game_ids = [row.game_id for row in result]
     candidate_games = db.query(Game).filter(Game.id.notin_(game_ids)).all()
@@ -112,3 +119,32 @@ def get_recommendations(
     scored_games.sort(key = lambda x: x[0], reverse = True)
     limit_games = scored_games[offset: offset + limit]
     return [game for score, game in limit_games]
+
+@app.post("/games/{game_id}/status")
+def set_game_status(
+    game_id: int,
+    status_data: Game_Status_Update,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    existing = db.query(UserGameStatus).filter(current_user.id == UserGameStatus.user_id, game_id == UserGameStatus.game_id).first()
+    
+    if existing:
+        existing.status = status_data.status
+        existing.user_rating = status_data.user_rating
+        db.commit()
+        saved_status = existing
+    else:
+        new_status = UserGameStatus(
+            user_id = current_user.id,
+            game_id = game_id,
+            status = status_data.status,
+            user_rating = status_data.user_rating
+        )
+        db.add(new_status)
+        db.commit()
+        db.refresh(new_status)
+        saved_status = new_status
+    
+    
+    return saved_status
