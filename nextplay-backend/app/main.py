@@ -6,8 +6,17 @@ from app.database import get_db
 from app.models import Game, User, UserPreferences, UserGameStatus
 from app.schemas import UserCreate, UserLogin, Preferences, Game_Status_Update
 from app.auth import hash_password, verify_password, create_access_token, get_current_user
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
