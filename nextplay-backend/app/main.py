@@ -25,8 +25,10 @@ def health_check(db: Session = Depends(get_db)):
     return {"status": "ok", "db_check": result}
 
 @app.get("/games")
-def filter_games(genre: str | None = None, platform: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(Game)
+def filter_games(genre: str | None = None, platform: str | None = None, db: Session = Depends(get_db),
+                limit: int = 20,
+                offset: int = 0):
+    query = db.query(Game).order_by(Game.rating.desc().nulls_last(), Game.id)
 
     if platform:
         platform_string = func.array_to_string(Game.platforms, ",").ilike(f"%{platform}%")
@@ -36,7 +38,7 @@ def filter_games(genre: str | None = None, platform: str | None = None, db: Sess
         genre_string = func.array_to_string(Game.genres, ",").ilike(f"%{genre}%")
         query = query.filter(genre_string)
 
-    result = query.all()
+    result = query.offset(offset).limit(limit).all()
     return result
 
 @app.post("/signup")
