@@ -7,12 +7,13 @@ from app.models import Game, User, UserPreferences, UserGameStatus
 from app.schemas import UserCreate, UserLogin, Preferences, Game_Status_Update
 from app.auth import hash_password, verify_password, create_access_token, get_current_user
 from fastapi.middleware.cors import CORSMiddleware
+from app.config import settings
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[settings.frontend_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

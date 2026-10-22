@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     igdb_client_id: str
     igdb_client_secret: str
     jwt_secret_key: str
+    frontend_url: str = "http://localhost:5173"
 
     class Config:
         env_file = ".env"
